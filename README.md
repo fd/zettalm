@@ -53,7 +53,9 @@ Alan Miller's AS 274 Algorithm and his Fortran90 source code for that publicatio
 AS 274 in turn builds upon W. Morven Gentleman's AS 75 algorithm. Refer to:
 
 http://www.jstor.org/stable/2347147
+
 http://lib.stat.cmu.edu/apstat/274
+
 http://lib.stat.cmu.edu/apstat/75
 
 Additional information and the Fortran90 source is available at
