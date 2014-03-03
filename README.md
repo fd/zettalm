@@ -5,7 +5,7 @@ build linear regression models on zettabytes of data - using Alan Miller's AS 27
 
 * fits linear models to data
 
-This code does basic linear regression, otherwise know as least-squares fiting.
+This code does basic linear regression, otherwise know as least-squares fitting.
 
 * but: handles really big data
 
