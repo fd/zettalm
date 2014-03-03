@@ -1,11 +1,11 @@
 Project Zettalm
 ===============
 
-build linear regression models on zettabytes of data - using Alan Miller's AS 274 online QR decomposition
+Go code to build linear regression models on zettabytes of data - using Alan Miller's AS 274 online QR decomposition
 
 * fits linear models to data
 
-This code does basic linear regression, otherwise know as least-squares fitting.
+This golang code does basic linear regression, otherwise know as least-squares fitting.
 
 * but: handles really big data
 
@@ -67,4 +67,8 @@ version of the code has been placed in the public domain. Extensive credit is du
 Dr. Miller for this rigorous and numerically exacting algorithm. As a tribute, we
 name the central struct the MillerLSQ struct. LSQ is short for least
 squares, the method of regression implemented here.
+
+License: MIT
+
+Copyright (c) 2014, Jason E. Aten, Ph.D. <j.e.aten@gmail.com>
 
