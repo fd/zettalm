@@ -3,11 +3,11 @@ Project Zettalm
 
 build linear regression models on zettabytes of data - using Alan Miller's AS 274 online QR decomposition
 
-* fits linear models to data *
+* fits linear models to data
 
 This code does basic linear regression, otherwise know as least-squares fiting.
 
-* but: handles really big data *
+* but: handles really big data
 
 This particular solution to fitting linear models can handle infinite data,
 and that's the point.
@@ -21,7 +21,7 @@ code does. Again, observations of x and y variables are not stored in memory.
 Weighted observations are supported, including negative weights to delete
 cases.
 
-* is still quite fast *
+* is still quite fast
 
 You are certainly most likely to be I/O-bound. For CPU time, I benchmarked
 the current code at 10x the performance of R's linear model solver.
@@ -30,15 +30,17 @@ Asymptodically, for p variables (both x and y variables), each additional
 row of observations incurs O(p^2) time (see the Includ() routine).
 
 
-* enhancements over the fortran code *
+* enhancements over the fortran code
 
 I've added the ability to handle multiple y-variables at once, as well
 as online computation of means and standard deviations for all x and y variables.
-Also I've fixed bugs that were present when using the downdating functionality
-to remove rows from the set. Also I've added an extensive acceptance test-suite to
+Also I've fixed minor bugs that were present when using the downdating functionality
+to remove rows from the set. 
+
+Most importantly, I've added an extensive acceptance test-suite to
 allow easy refactoring. Execute the tests, as usual in go, with "go test -v".
 
-* online, but can be a moving window too *
+* online, but can be a moving window too
 
 Even though it only ever looks at any row once, rows are weighted, and
 hence rows can be deleted, if you wish, from the data set considered
