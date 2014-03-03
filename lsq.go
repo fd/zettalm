@@ -43,7 +43,7 @@ import (
 //  Also I've fixed bugs that were present when using the downdating functionality
 //  to remove rows from the set.
 //
-//  Also, I've added an extensive suite of acceptance tests to allow easy refactoring.
+//  I've added an extensive suite of acceptance tests to allow easy refactoring.
 //  Execute the tests, as usual in go, with "go test -v".
 //
 //  * online, but can be a moving window too since you can delete observations *
@@ -789,11 +789,13 @@ func (m *MillerLSQ) SingularCheck(lindep *[]bool, wycol int) int {
 	return ifault
 } // end sing
 
-//
+//--------------------------------------------------------------------------
 // SS()
 //     Calculates partial residual sums of squares from an orthogonal
 //     reduction from AS75.1.
 //
+//--------------------------------------------------------------------------
+
 func (m *MillerLSQ) SS(wycol int) {
 
 	var i int
