@@ -50,14 +50,17 @@ Origins:
 
 The structure and algorithm at the heart of this file is derived from
 Alan Miller's AS 274 Algorithm and his Fortran90 source code for that publication.
-AS 274 in turn builds upon W. Morven Gentleman's AG 75 algorithm.
+AS 274 in turn builds upon W. Morven Gentleman's AS 75 algorithm. Refer to:
+
 http://www.jstor.org/stable/2347147
+http://lib.stat.cmu.edu/apstat/274
+http://lib.stat.cmu.edu/apstat/75
 
 Additional information and the Fortran90 source is available at
-the mirror, http://jblevins.org/mirror/amiller/lsq.f90.
-The web page there indicates that Alan Miller's version of the code
-has been placed in the public domain. Nonetheless, extensive credit is due to him
-for this rigorous and numerically exacting algorithm. As a tribute, we
+http://jblevins.org/mirror/amiller and http://jblevins.org/mirror/amiller/lsq.f90
+The web page http://jblevins.org/mirror/amiller/ indicates that Alan Miller's 
+version of the code has been placed in the public domain. Extensive credit is due to
+Dr. Miller for this rigorous and numerically exacting algorithm. As a tribute, we
 name the central struct the MillerLSQ struct. LSQ is short for least
 squares, the method of regression implemented here.
 
