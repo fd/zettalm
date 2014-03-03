@@ -48,7 +48,7 @@ on the second call to Includ().
 
 Origins:
 
-The structure and algorithm at the heart of this file is derived from
+The structure and algorithm at the heart of this code is derived from
 Alan Miller's AS 274 Algorithm and his Fortran90 source code for that publication.
 AS 274 in turn builds upon W. Morven Gentleman's AS 75 algorithm. Refer to:
 
