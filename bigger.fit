@@ -1,0 +1,25 @@
+
+Call:
+lm(formula = g3 ~ ., data = df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-4.2511 -1.1826 -0.1266  1.3026  4.2183 
+
+Coefficients:
+              Estimate Std. Error   t value Pr(>|t|)    
+(Intercept)  2.629e+00  3.121e+00     0.842    0.404    
+ad          -3.127e-02  8.328e-02    -0.375    0.709    
+bd           1.164e-02  1.135e-01     0.103    0.919    
+cd           1.278e-02  1.209e-02     1.057    0.296    
+dd           8.821e-05  3.700e-03     0.024    0.981    
+ed           1.029e-02  8.338e-03     1.234    0.224    
+g1           9.767e-01  3.020e-02    32.340   <2e-16 ***
+g2          -1.000e+00  1.622e-04 -6166.537   <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 2.147 on 42 degrees of freedom
+Multiple R-squared:      1,	Adjusted R-squared:      1 
+F-statistic: 6.301e+06 on 7 and 42 DF,  p-value: < 2.2e-16
+
