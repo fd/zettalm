@@ -27,7 +27,22 @@ You are certainly most likely to be I/O-bound. For CPU time, I benchmarked
 the current code at 10x the performance of R's linear model solver.
 
 Asymptodically, for p variables (both x and y variables), each additional
-row of observations incurs O(p^2) time (see the Includ() routine).
+row of observations incurs O(p^2) time at the time of addition (see the Includ() routine).
+When you want to get the regression coefficients for the current model, 
+it costs one O(p^2) time operation, a call to Regcf(), to extract and
+return the betas. If you need standard errors (to compute p-values for the
+betas), the Cov() routine will supply them, along with the parameter covariance matrix,
+and needs O(p^3) time (as does its subroutine, Inv()). SingularCheck() 
+and SS() are both O(p) time routines.
+
+In summary, for a typical fit on N rows for p variables, where N > p,
+the time complexity is O(N*p^2). If p < N, then cost is O(p^3) time due to the 
+Cov() call. Overall, time complexity is O(N*p^2 + p^3), as is typical for
+linear regression.  Note that the structure of the code means that you
+can fit multiple dependent y-variables at once, and still only ever make one
+pass through the data. Data need not fit in main memory, nor even ever be
+stored all in one place. For big problems, the savings on space can make
+a huge difference in what is viable to handle.
 
 
 * enhancements over the fortran code
