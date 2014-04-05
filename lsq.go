@@ -444,8 +444,10 @@ func StringSliceEqual(a, b []string) bool {
 //     Calling this routine updates D, R, RHS and SSERR by the
 //     inclusion of xrow, yelem = each of yrow member in turn, with the specified weight.
 //
-//   iff row was ommitted due to nanapproach == NAN_OMIT_ROW, we return true
-func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanapproach NanHandling) (rowOmitted bool) {
+//   iff row was ommitted due to nanapproach == NAN_OMIT_ROW, we return false
+func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanapproach NanHandling) (rowIncluded bool) {
+
+	rowIncluded = true //default
 
 	// xi having NaN is messing us up. Zero them out. This takes care of
 	//  nanapproach == NAN_TO_ZERO
@@ -458,7 +460,7 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanap
 	if nanapproach == NAN_OMIT_ROW {
 		if xHasNaN || yHasNaN {
 			// returning early omits the row
-			return true
+			return false
 		}
 	}
 
