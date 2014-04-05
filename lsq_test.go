@@ -93,7 +93,7 @@ func TestInclude(t *testing.T) {
 
 		cv.Convey("When we add and subtract an observation with Includ()", func() {
 			//m.Includ(1.0, r0, len(r0)-1)
-			m.Includ(1.0, r0, y0)
+			m.Includ(1.0, r0, y0, NAN_OMIT_ROW)
 
 			afterIn := UpperTriToString(m.R, m.Ncol, ";", StdFormat6dec)
 			cv.Convey("After only an include we should get [ 1.000000 2.000000 3.000000 ; 0.000000 1.000000 0.000000 ; 0.000000 0.000000 1.000000] ", func() {
@@ -101,7 +101,7 @@ func TestInclude(t *testing.T) {
 				cv.So(afterIn, cv.ShouldEqual, "[ 1.000000 2.000000 3.000000 ; 0.000000 1.000000 0.000000 ; 0.000000 0.000000 1.000000]")
 			})
 			//m.Includ(-1.0, r0, len(r0)-1)
-			m.Includ(-1.0, r0, y0)
+			m.Includ(-1.0, r0, y0, NAN_OMIT_ROW)
 			cv.Convey("Then we should get back the orignal identity matrix in R", func() {
 				afterInOut := UpperTriToString(m.R, m.Ncol, ";", StdFormat2dec)
 
@@ -139,7 +139,7 @@ func TestOnFuelData(t *testing.T) {
 	//fmt.Printf("in fuelconst.dat, df.Rows[0] = %v\n", df.Rows[0])
 	last := df.Ncol - 1
 	for i := range df.Rows {
-		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:])
+		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:], NAN_OMIT_ROW)
 	}
 
 	mat := "\n" + UpperTriToString(m.R, m.Ncol, "\n", StdFormat6dec)
@@ -222,7 +222,7 @@ func TestOnFuelPartialCorrelation(t *testing.T) {
 	// add dataframe's rows
 	last := df.Ncol - 1
 	for i := range df.Rows {
-		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:])
+		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:], NAN_OMIT_ROW)
 		Rversion[i+1] = DeepCopy(m.R)
 	}
 
@@ -238,7 +238,7 @@ func TestOnFuelPartialCorrelation(t *testing.T) {
 				//fmt.Printf("Downdating data row j is %v\n", j)
 				xrow := df.Rows[j]
 				//m.Includ(-1.0, slc, whichY) // weight of -1 means remove this row (downdate)
-				m.Includ(-1.0, xrow[1:last], []float64{xrow[last]}) // weight of -1 means remove this row (downdate)
+				m.Includ(-1.0, xrow[1:last], []float64{xrow[last]}, NAN_OMIT_ROW) // weight of -1 means remove this row (downdate)
 
 				// we're okay down to 9
 				if !fSliceEqual(Rversion[j], m.R) {
@@ -257,7 +257,7 @@ func TestOnFuelPartialCorrelation(t *testing.T) {
 
 	// put back in the data
 	for i := range df.Rows {
-		m.Includ(1.0, df.Rows[i][1:last], []float64{df.Rows[i][last]})
+		m.Includ(1.0, df.Rows[i][1:last], []float64{df.Rows[i][last]}, NAN_OMIT_ROW)
 	}
 
 	lindep = make([]bool, m.Ncol)
@@ -329,7 +329,7 @@ func TestReorderBetasCovarReporting(t *testing.T) {
 	// add dataframe's rows
 	last := df.Ncol - 1
 	for i := range df.Rows {
-		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:])
+		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:], NAN_OMIT_ROW)
 	}
 
 	lindep := make([]bool, m.Ncol)
@@ -385,16 +385,15 @@ func TestReorderBetasCovarReporting(t *testing.T) {
 	m.Tolset(1e-12) // Calculate tolerances before calling
 	// subroutine regcf.
 	nreq := 5 // i.e. Const, TAX, INC, ROAD, DLIC
-	beta := make([]float64, df.Ncol)
 
-	err = m.Regcf(beta, []int{1, 2, 3, 4}, 0)
+	err, beta := m.Regcf([]int{1, 2, 3, 4}, 0)
 	if err != nil {
 		panic(err)
 	}
 	//fmt.Printf("beta is %v\n", beta)
 	//fmt.Printf("m.D is %v\n", m.D)
 
-	knownGoodBeta := []float64{377.29114647367385, -34.790149164432734, -66.58875178694376, -2.4258888852597504, 13.364493572600963, 0, 0, 0, 0}
+	knownGoodBeta := []float64{377.29114647367385, -34.790149164432734, -66.58875178694376, -2.4258888852597504, 13.364493572600963}
 	//fmt.Printf("knownGoodBeta is %v\n", knownGoodBeta)
 	cv.Convey("m.Regcf() should compute the correct parameter estimates or betas for number of required betas (nreq)", t, func() {
 		cv.So(EpsSliceEqual(beta, knownGoodBeta, 1e-10), cv.ShouldEqual, true)
@@ -543,10 +542,8 @@ DLic             13.36        1.923     6.95          189050
 		panic(err)
 	}
 	nreq = nreq - 1
-	for i := range beta {
-		beta[i] = 0
-	}
-	err = m.Regcf(beta, []int{1, 2, 3}, 0)
+
+	err, beta = m.Regcf([]int{1, 2, 3}, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -600,7 +597,7 @@ DLic             13.75        1.837     7.49          191302
 	*/
 
 	kgVorder := []int{0, 2, 4, 7, 5, 1, 3, 6}
-	kgBeta := []float64{307.3278964966638, -29.483808565617203, -68.02286155799504, 13.747684110568663, 0, 0, 0, 0, 0}
+	kgBeta := []float64{307.3278964966638, -29.483808565617203, -68.02286155799504, 13.747684110568663}
 	kgSterr := []float64{156.8306699209346, 10.58357586517238, 17.009750282390495, 1.8366953982594196, 1.9229814252595065}
 	kgTstat := []float64{1.9596160409925023, -2.7858078348207678, -3.9990511576419996, 7.48501037439138, 6.949881780994023}
 	kgRss := []float64{588366.4791666666, 468543.3588375224, 434888.6535569369, 191302.45441913296, 189049.96822312832, 177344.10625162232, 171100.06850570423, 150444.92571767746}

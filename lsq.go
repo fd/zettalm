@@ -33,8 +33,8 @@ import (
 //  You are certainly most likely to be IO-bound. For CPU time, I benchmarked
 //  the current code at 10x the performance of R's linear model solver.
 //  Asymptodically, for p variables (both x and y variables), each additional
-//  row of observations incurs O(p^2) time. This should allow fitting models
-//  with hundreds or thousands of predictors in an online fashion.
+//  row of observations incurs O(p^2) time. To process n rows will take
+//  you time O(n*p*p) assuming n is > p.
 //
 //  * enhancements over the fortran code *
 //
@@ -43,16 +43,13 @@ import (
 //  Also I've fixed bugs that were present when using the downdating functionality
 //  to remove rows from the set.
 //
-//  I've added an extensive suite of acceptance tests to allow easy refactoring.
-//  Execute the tests, as usual in go, with "go test -v".
-//
-//  * online, but can be a moving window too since you can delete observations *
+//  * online, but can be a moving window too *
 //
 //  Even though it only ever looks at any row once, rows are weighted, and
 //  hence rows can be deleted, if you wish, from the data set considered
 //  by adding the same row again but using a weight of -1 (instead of the default +1 weight)
 //  on the second call to Includ().
-//
+
 //
 //  Origins:
 //
@@ -132,6 +129,13 @@ import (
 //
 //--------------------------------------------------------------------------
 
+type NanHandling uint32
+
+const (
+	NAN_TO_ZERO  NanHandling = 0
+	NAN_OMIT_ROW             = 1
+)
+
 // change assignments from 1 (Fortan) based to 0 (Go) based by doing -Adj
 // inside many of [] access
 const Adj = 1
@@ -147,11 +151,11 @@ type MillerLSQ struct {
 	Nxvar          int // not counting Constant (intercept) coefficient. Nxvar = Ncol -1.
 	Nyvar          int // number of y-target variables
 
-	useMeanSd bool // Apply x' = (x - mean)/sd normalization
-	xmean     []float64
-	xsd       []float64
-	ymean     []float64
-	ysd       []float64
+	UseMeanSd bool // Apply x' = (x - mean)/sd normalization
+	Xmean     []float64
+	Xsd       []float64
+	Ymean     []float64
+	Ysd       []float64
 
 	Initialized bool
 	Tol_set     bool
@@ -174,14 +178,14 @@ type MillerLSQ struct {
 	Rinv     []float64
 	Dim_rinv int
 
-	// curxrow: copy incomming xrow here, and we add the 1 in the constant
+	// Curxrow: copy incomming xrow here, and we add the 1 in the constant
 	//          position so users don't need to worry about it.
-	curxrow []float64
-	curyrow []float64
+	Curxrow []float64
+	Curyrow []float64
 }
 
 func (m *MillerLSQ) SetMeanSd(xmean []float64, xsd []float64, ymean []float64, ysd []float64) {
-	if m.useMeanSd {
+	if m.UseMeanSd {
 		panic("can only call SetMeanSd once.")
 	}
 	if m.Nobs > 0 {
@@ -193,11 +197,11 @@ func (m *MillerLSQ) SetMeanSd(xmean []float64, xsd []float64, ymean []float64, y
 	if len(xmean) != m.Nxvar {
 		panic(fmt.Sprintf("xmean(%v) did not agree with m.Nxvar(%v)", xmean, m.Nxvar))
 	}
-	copy(m.xmean, xmean)
-	copy(m.xsd, xsd)
-	copy(m.ymean, ymean)
-	copy(m.ysd, ysd)
-	m.useMeanSd = true
+	copy(m.Xmean, xmean)
+	copy(m.Xsd, xsd)
+	copy(m.Ymean, ymean)
+	copy(m.Ysd, ysd)
+	m.UseMeanSd = true
 }
 
 func DeepCopy(a []float64) []float64 {
@@ -233,11 +237,11 @@ func NewMillerLSQ(nxvar int, nyvar int) *MillerLSQ {
 
 	m.R_dim = m.Ncol * (m.Ncol - 1) / 2
 
-	m.useMeanSd = false
-	m.xmean = make([]float64, m.Nxvar)
-	m.xsd = make([]float64, m.Nxvar)
-	m.ymean = make([]float64, m.Nyvar)
-	m.ysd = make([]float64, m.Nyvar)
+	m.UseMeanSd = false
+	m.Xmean = make([]float64, m.Nxvar)
+	m.Xsd = make([]float64, m.Nxvar)
+	m.Ymean = make([]float64, m.Nyvar)
+	m.Ysd = make([]float64, m.Nyvar)
 
 	m.Initialized = true
 	m.Tol_set = false
@@ -282,8 +286,8 @@ func NewMillerLSQ(nxvar int, nyvar int) *MillerLSQ {
 	// so here we make sure this last entry is out-of-bounds for m.R
 	m.Row_ptr[m.Ncol-Adj] = m.R_dim + 1
 
-	m.curxrow = make([]float64, m.Ncol)
-	m.curyrow = make([]float64, m.Nyvar)
+	m.Curxrow = make([]float64, m.Ncol)
+	m.Curyrow = make([]float64, m.Nyvar)
 
 	return m
 } // end startup
@@ -440,8 +444,23 @@ func StringSliceEqual(a, b []string) bool {
 //     Calling this routine updates D, R, RHS and SSERR by the
 //     inclusion of xrow, yelem = each of yrow member in turn, with the specified weight.
 //
-//
-func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64) {
+//   iff row was ommitted due to nanapproach == NAN_OMIT_ROW, we return true
+func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanapproach NanHandling) (rowOmitted bool) {
+
+	// xi having NaN is messing us up. Zero them out. This takes care of
+	//  nanapproach == NAN_TO_ZERO
+	xHasNaN := NanToZero(xrow)
+	yHasNaN := NanToZero(yrow)
+
+	// but in order to match with R regression (default) linear model,
+	// we also need to be able to omit rows with NaN in them.
+	// Not yet implemented: replace missing value with xmean?
+	if nanapproach == NAN_OMIT_ROW {
+		if xHasNaN || yHasNaN {
+			// returning early omits the row
+			return true
+		}
+	}
 
 	//fmt.Printf("Includ() called with xrow = %v   and yrow = %v\n", xrow, yrow)
 
@@ -453,9 +472,9 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64) {
 		panic(fmt.Sprintf("len(xrow) == %v did not match m.Nxvar == %v", len(xrow), m.Nxvar))
 	}
 
-	m.curxrow[0] = 1.0
-	copy(m.curxrow[1:], xrow) // curxrow is 1 longer than xrow
-	copy(m.curyrow, yrow)
+	m.Curxrow[0] = 1.0
+	copy(m.Curxrow[1:], xrow) // Curxrow is 1 longer than xrow
+	copy(m.Curyrow, yrow)
 
 	var i, k, nextr int
 	var w, y, xi, di, wxi, dpi, cbar, sbar, xk float64
@@ -473,23 +492,23 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64) {
 	m.XStats.AddObs(xrow, weight)
 	m.YStats.AddObs(yrow, weight)
 
-	if m.useMeanSd {
-		for j := range m.curyrow {
-			if m.ysd[j] != 0.0 {
-				m.curyrow[j] = (m.curyrow[j] - m.ymean[j]) / m.ysd[j]
+	if m.UseMeanSd {
+		for j := range m.Curyrow {
+			if m.Ysd[j] != 0.0 {
+				m.Curyrow[j] = (m.Curyrow[j] - m.Ymean[j]) / m.Ysd[j]
 			}
 		}
 
 		// use bump to skip past the 1.0 constant in xrow
 		bump := 1
 		for j := range xrow {
-			if m.xsd[j] != 0.0 {
-				m.curxrow[j+bump] = (m.curxrow[j+bump] - m.xmean[j]) / m.xsd[j]
+			if m.Xsd[j] != 0.0 {
+				m.Curxrow[j+bump] = (m.Curxrow[j+bump] - m.Xmean[j]) / m.Xsd[j]
 			}
 		}
 	}
 
-	//y = m.curyrow[0]
+	//y = m.Curyrow[0]
 
 	m.Nobs = m.Nobs + 1
 	m.Rss_set = false
@@ -499,13 +518,20 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64) {
 		//     Skip unnecessary transformations.   Test on exact zeroes must be
 		//     used or stability can be destroyed.
 
-		xi = m.curxrow[i-Adj]
+		xi = m.Curxrow[i-Adj]
+
 		if math.Abs(xi) < m.Vsmall {
 			nextr = nextr + m.Ncol - i // okay, no Adj needed.
 		} else {
 			di = m.D[i-Adj]
 			wxi = w * xi
 			dpi = di + wxi*xi
+
+			if math.IsNaN(dpi) {
+				msg := "detected IsNaN(dpi) in Includ()"
+				panic(msg)
+			}
+
 			// can't divide by dpi when dpi is 0
 			if fEquals(dpi, 0.0) {
 				cbar = 0.0
@@ -517,21 +543,21 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64) {
 			w = cbar * w
 			m.D[i-Adj] = dpi
 			for k = i + 1; k <= m.Ncol; k++ {
-				xk = m.curxrow[k-Adj]
-				m.curxrow[k-Adj] = xk - xi*m.R[nextr]  // no Adj needed for [nextr]
+				xk = m.Curxrow[k-Adj]
+				m.Curxrow[k-Adj] = xk - xi*m.R[nextr]  // no Adj needed for [nextr]
 				m.R[nextr] = cbar*m.R[nextr] + sbar*xk // no Adj needed for [nextr]
 				//fmt.Printf("R is %s\n", m.RtoString(2))
 
 				nextr = nextr + 1
 			}
 			// update all the m.Rhs[]
-			for yi := range m.curyrow {
-				y = m.curyrow[yi]
+			for yi := range m.Curyrow {
+				y = m.Curyrow[yi]
 				xk = y
 				y = xk - xi*m.Rhs[yi][i-Adj]
 				m.Rhs[yi][i-Adj] = cbar*m.Rhs[yi][i-Adj] + sbar*xk
 
-				m.curyrow[yi] = y
+				m.Curyrow[yi] = y
 			}
 		}
 		//fmt.Printf("during Includ(), pass %d: m.Rhs is %v\n", i, m.Rhs)
@@ -540,10 +566,12 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64) {
 	//     Y * math.Sqrt(W) is now equal to the Brown, Durbin & Evans recursive
 	//     residual.
 
-	for yi := range m.curyrow {
-		y = m.curyrow[yi]
+	for yi := range m.Curyrow {
+		y = m.Curyrow[yi]
 		m.Sserr[yi] = m.Sserr[yi] + w*y*y
 	}
+
+	return
 } // end Includ()
 
 //    Regcf(): This returns the least-squares regression coefficients in array beta.
@@ -563,9 +591,10 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64) {
 //     for the first NREQ variables, given an orthogonal reduction from
 //     AS75.1.
 
-func (m *MillerLSQ) Regcf(beta []float64, wxcol []int, wycol int) error {
+func (m *MillerLSQ) Regcf(wxcol []int, wycol int) (err error, beta []float64) {
 
 	var nreq int = len(wxcol) + 1
+	beta = make([]float64, nreq)
 
 	if wycol < 0 {
 		panic("wcol cannot be negative")
@@ -592,7 +621,7 @@ func (m *MillerLSQ) Regcf(beta []float64, wxcol []int, wycol int) error {
 
 	var res error = nil
 	if nreq < 1 || nreq > m.Ncol {
-		return errors.New(fmt.Sprintf("Regcf() call error: nreq==%v out of range.", nreq))
+		return errors.New(fmt.Sprintf("Regcf() call error: nreq==%v out of range.", nreq)), beta
 	}
 
 	if !m.Tol_set {
@@ -623,7 +652,7 @@ func (m *MillerLSQ) Regcf(beta []float64, wxcol []int, wycol int) error {
 		}
 	}
 
-	return res
+	return res, beta
 }
 
 var EpsilonFloat64 float64 = math.Nextafter(1.0, 2.0) - 1.0 // 2.220446049250313e-16
@@ -776,7 +805,7 @@ func (m *MillerLSQ) SingularCheck(lindep *[]bool, wycol int) int {
 				m.Rhs[wycol][row-Adj] = 0.0
 
 				//fmt.Printf("weight=%v   x=%v   y=%v\n", weight, x, y)
-				m.Includ(weight, x[1:], []float64{y})
+				m.Includ(weight, x[1:], []float64{y}, NAN_TO_ZERO)
 				// INCLUD automatically increases the number
 				// of cases each time it is called. compensate by decreasing m.Nobs
 				m.Nobs = m.Nobs - 1
@@ -789,13 +818,11 @@ func (m *MillerLSQ) SingularCheck(lindep *[]bool, wycol int) int {
 	return ifault
 } // end sing
 
-//--------------------------------------------------------------------------
+//
 // SS()
 //     Calculates partial residual sums of squares from an orthogonal
 //     reduction from AS75.1.
 //
-//--------------------------------------------------------------------------
-
 func (m *MillerLSQ) SS(wycol int) {
 
 	var i int
@@ -1587,4 +1614,16 @@ func (m *MillerLSQ) RColumn(k int) []float64 {
 	//fmt.Printf("column %d from %s\n    is %v\n", k, UpperTriToString(m.R, m.Ncol, "\n", StdFormat6dec), r)
 
 	return r
+}
+
+// returns true if found nan
+func NanToZero(s []float64) bool {
+	foundNaN := false
+	for i := range s {
+		if math.IsNaN(s[i]) {
+			s[i] = 0
+			foundNaN = true
+		}
+	}
+	return foundNaN
 }

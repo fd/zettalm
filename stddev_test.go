@@ -70,7 +70,7 @@ func TestMultiVariateSdTracker(t *testing.T) {
 
 	last := df.Ncol - 1
 	for i := range df.Rows {
-		m.Includ(1.0, df.Rows[i][1:last-1], df.Rows[i][last-1:])
+		m.Includ(1.0, df.Rows[i][1:last-1], df.Rows[i][last-1:], NAN_OMIT_ROW)
 	}
 
 	eps := 1e-3

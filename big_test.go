@@ -32,7 +32,7 @@ func TestLsqOnBiggerData(t *testing.T) {
 	// add dataframe's rows
 	last := df.Ncol - 1
 	for i := range df.Rows {
-		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:])
+		m.Includ(1.0, df.Rows[i][1:last], df.Rows[i][last:], NAN_OMIT_ROW)
 		// formula: g3 ~ .    same as: g3 ~ ad + bd + cd + dd + ed + g1 + g2
 	}
 
@@ -97,18 +97,20 @@ func TestLsqOnBiggerData(t *testing.T) {
 	m.Tolset(1e-12) // Calculate tolerances before calling
 	// subroutine regcf.
 	nreq := 8 // i.e. [Constant ad bd cd     dd ed g1 g2]
-	beta := make([]float64, df.Ncol+1)
 	wycol := 0
 	// use Seq(nreq-1) to get regcf for all [Constant ad bd cd     dd ed g1 g2], since the constant is auto-added in.
-	err = m.Regcf(beta, Seq(nreq-1), wycol)
+	err, beta := m.Regcf(Seq(nreq-1), wycol)
 	if err != nil {
 		panic(err)
 	}
 	//fmt.Printf("at nreq-1 == %d, TestLsqOnBiggerData beta is %v\n", nreq-1, beta)
 
-	knownGoodBeta := []float64{2.629355171810687, -0.03126581441662779, 0.011638188334615052, 0.012780715540548826, 8.820750124372001e-05, 0.010290090247564304, 0.976696861779601, -1.0000597616721187, 0, 0}
+	knownGoodBeta := []float64{2.629355171810687, -0.03126581441662779, 0.011638188334615052, 0.012780715540548826, 8.820750124372001e-05, 0.010290090247564304, 0.976696861779601, -1.0000597616721187}
 	cv.Convey("m.Regcf() should compute the correct parameter estimates or betas.", t, func() {
 		cv.So(EpsSliceEqual(beta, knownGoodBeta, 1e-10), cv.ShouldEqual, true)
+		if !EpsSliceEqual(beta, knownGoodBeta, 1e-10) {
+			fmt.Printf("beta = %v\n\n vs knownGoodBeta=%v\n", beta, knownGoodBeta)
+		}
 	})
 
 	m.SS(wycol) // Calculate residual sums of squares
@@ -228,7 +230,7 @@ func TestBiggerDataSmallerModelG3(t *testing.T) {
 	// add dataframe's rows
 	last := df.Ncol - 1
 	for i := range df.Rows {
-		m.Includ(1.0, df.Rows[i][1:last-2], df.Rows[i][last:])
+		m.Includ(1.0, df.Rows[i][1:last-2], df.Rows[i][last:], NAN_OMIT_ROW)
 		// formula: g3 ~ .    same as: g3 ~ ad + bd + cd + dd + ed + g1 + g2
 	}
 
@@ -249,17 +251,16 @@ func TestBiggerDataSmallerModelG3(t *testing.T) {
 	m.Tolset(1e-12) // Calculate tolerances before calling
 	// subroutine regcf.
 	nreq := 6 // i.e. [Constant ad bd cd     dd ed g1 g2]
-	beta := make([]float64, df.Ncol+1)
 	wycol := 0
 
 	// regress g3 on [ad bd cd dd ed]
-	err = m.Regcf(beta, Seq(5), wycol)
+	err, beta := m.Regcf(Seq(5), wycol)
 	if err != nil {
 		panic(err)
 	}
 	//fmt.Printf("at nreq-1 == %d, BiggerDataSmallerModel beta is %v\n", nreq-1, beta)
 
-	knownGoodBeta := []float64{701.863273934701, 22.394916792915925, -180.25041095321492, 13.093753729871201, -0.6434176898397235, -0.20503547472106387, 0, 0, 0, 0}
+	knownGoodBeta := []float64{701.863273934701, 22.394916792915925, -180.25041095321492, 13.093753729871201, -0.6434176898397235, -0.20503547472106387}
 	cv.Convey("m.Regcf() should compute the correct parameter estimates or betas.", t, func() {
 		cv.So(EpsSliceEqual(beta, knownGoodBeta, 1e-10), cv.ShouldEqual, true)
 	})
