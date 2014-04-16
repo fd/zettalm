@@ -151,6 +151,11 @@ type MillerLSQ struct {
 	Nxvar          int // not counting Constant (intercept) coefficient. Nxvar = Ncol -1.
 	Nyvar          int // number of y-target variables
 
+	// NaN handling
+	NanApproach         NanHandling // NAN_TO_ZERO or NAN_OMIT_ROW implemented so far.
+	CountNaNRowsSkipped int64
+	RowsSeen            int64 // includes both included and omitted due to nan
+
 	UseMeanSd bool // Apply x' = (x - mean)/sd normalization
 	Xmean     []float64
 	Xsd       []float64
@@ -159,7 +164,7 @@ type MillerLSQ struct {
 
 	Initialized bool
 	Tol_set     bool
-	Rss_set     bool
+	Rss_set     []bool // size of Nyvar
 
 	Vsmall float64
 	Sserr  []float64
@@ -232,6 +237,10 @@ func NewMillerLSQ(nxvar int, nyvar int) *MillerLSQ {
 	m.Nxvar = nxvar
 	m.Nyvar = nyvar
 
+	m.NanApproach = NAN_OMIT_ROW
+	m.CountNaNRowsSkipped = 0
+	m.RowsSeen = 0 // includes both included and omitted due to nan
+
 	m.XStats.ZeroTracker(m.Nxvar)
 	m.YStats.ZeroTracker(m.Nyvar)
 
@@ -245,7 +254,7 @@ func NewMillerLSQ(nxvar int, nyvar int) *MillerLSQ {
 
 	m.Initialized = true
 	m.Tol_set = false
-	m.Rss_set = false
+	m.Rss_set = make([]bool, m.Nyvar)
 
 	m.Vsmall = 1e-12
 	m.Sserr = make([]float64, m.Nyvar)
@@ -444,8 +453,11 @@ func StringSliceEqual(a, b []string) bool {
 //     Calling this routine updates D, R, RHS and SSERR by the
 //     inclusion of xrow, yelem = each of yrow member in turn, with the specified weight.
 //
-//   iff row was ommitted due to nanapproach == NAN_OMIT_ROW, we return true
-func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanapproach NanHandling) (rowOmitted bool) {
+//   iff row was ommitted due to nanapproach == NAN_OMIT_ROW, we return false
+func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanapproach NanHandling) (rowIncluded bool) {
+	m.RowsSeen++
+
+	rowIncluded = true //default
 
 	// xi having NaN is messing us up. Zero them out. This takes care of
 	//  nanapproach == NAN_TO_ZERO
@@ -458,7 +470,8 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanap
 	if nanapproach == NAN_OMIT_ROW {
 		if xHasNaN || yHasNaN {
 			// returning early omits the row
-			return true
+			m.CountNaNRowsSkipped++
+			return false
 		}
 	}
 
@@ -510,8 +523,10 @@ func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanap
 
 	//y = m.Curyrow[0]
 
-	m.Nobs = m.Nobs + 1
-	m.Rss_set = false
+	m.Nobs++
+	for k := range m.Rss_set {
+		m.Rss_set[k] = false
+	}
 	nextr = 1 - Adj
 	for i = 1; i <= m.Ncol; i++ {
 
@@ -808,7 +823,8 @@ func (m *MillerLSQ) SingularCheck(lindep *[]bool, wycol int) int {
 				m.Includ(weight, x[1:], []float64{y}, NAN_TO_ZERO)
 				// INCLUD automatically increases the number
 				// of cases each time it is called. compensate by decreasing m.Nobs
-				m.Nobs = m.Nobs - 1
+				m.Nobs--
+				m.RowsSeen--
 			} else {
 				m.Sserr[0] = m.Sserr[0] + m.D[row-Adj]*m.Rhs[wycol][row-Adj]*m.Rhs[wycol][row-Adj]
 			}
@@ -835,7 +851,7 @@ func (m *MillerLSQ) SS(wycol int) {
 		m.Rss[wycol][(i-1)-Adj] = total
 	}
 
-	m.Rss_set = true
+	m.Rss_set[wycol] = true
 }
 
 //--------------------------------------------------------------------------
@@ -878,7 +894,7 @@ func (m *MillerLSQ) Cov(nreq int, covmat []float64, sterr []float64, wycol int) 
 	//     Calculate estimate of the residual variance.
 
 	if m.Nobs > int64(nreq) {
-		if !m.Rss_set {
+		if !m.Rss_set[wycol] {
 			m.SS(wycol)
 		}
 		Variance = m.Rss[wycol][nreq-Adj] / float64(m.Nobs-int64(nreq))
@@ -1109,8 +1125,8 @@ func (m *MillerLSQ) Vmove(from int, to int) error {
 		return errors.New(fmt.Sprintf("Vmove() error: to(%d) is equal from(%d)", to, from))
 	}
 
-	if !m.Rss_set {
-		for wycol := range m.Rhs {
+	for wycol := range m.Rhs {
+		if !m.Rss_set[wycol] {
 			m.SS(wycol)
 		}
 	}
