@@ -455,6 +455,7 @@ func StringSliceEqual(a, b []string) bool {
 //
 //   iff row was ommitted due to nanapproach == NAN_OMIT_ROW, we return false
 func (m *MillerLSQ) Includ(weight float64, xrow []float64, yrow []float64, nanapproach NanHandling) (rowIncluded bool) {
+
 	m.RowsSeen++
 
 	rowIncluded = true //default
