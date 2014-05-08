@@ -83,6 +83,8 @@ Dr. Miller for this rigorous and numerically exacting algorithm. As a tribute, w
 name the central struct the MillerLSQ struct. LSQ is short for least
 squares, the method of regression implemented here.
 
+Non-public enhancement: I've written an extension that allows scatter-gather fitting of models in parallel. This drastically reduces the fitting time for many models. Contact me directly if you are interested in licensing the parallelization code.
+
 License: MIT
 
 Copyright (c) 2014, Jason E. Aten, Ph.D. <j.e.aten@gmail.com>
