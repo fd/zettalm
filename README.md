@@ -79,9 +79,7 @@ Additional information and the Fortran90 source is available at
 http://jblevins.org/mirror/amiller and http://jblevins.org/mirror/amiller/lsq.f90
 The web page http://jblevins.org/mirror/amiller/ indicates that Alan Miller's 
 version of the code has been placed in the public domain. Extensive credit is due to
-Dr. Miller for this rigorous and numerically exacting algorithm. As a tribute, we
-name the central struct the MillerLSQ struct. LSQ is short for least
-squares, the method of regression implemented here.
+Dr. Miller for the implementation and Dr. Gentleman for the theory (using Fast Given's rotations and avoiding square root operations during computation of the Cholesky factorization) in this numerically exacting algorithm.
 
 Non-public enhancement: I've written an extension that allows scatter-gather fitting of models in parallel. This drastically reduces the fitting time for many models. Contact me directly if you are interested in licensing the parallelization code.
 
