@@ -12,7 +12,7 @@ This golang code does basic linear regression, otherwise know as least-squares f
 This particular solution to fitting linear models can handle infinite data,
 and that's the point.
 
-Again: there a tons of model fitting packages, but the point of interest here
+There are lots of model fitting packages that can handle finite data; they handle data that fits in RAM, or fits on disk, or in the cloud. The point of interest here
 is that this online QR decomposition algorithm can handle Zetta-Bytes of observations,
 *actually unlimited* rows of data. It needs space only proportional to
 O(p^2) for p variables. It only ever has to look at each row once. The original
