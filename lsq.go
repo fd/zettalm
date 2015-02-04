@@ -287,7 +287,7 @@ func NewMillerLSQ(nxvar int, nyvar int) *MillerLSQ {
 	// Row_ptr entries are accurately 0-based or 1-based depending on Adj
 	m.Row_ptr[1-Adj] = 1 - Adj
 	for i := 2; i <= m.Ncol-1; i++ {
-		m.Row_ptr[i-Adj] = m.Row_ptr[(i-1)-Adj] + m.Ncol - i + 1
+		m.Row_ptr[i-Adj] = m.Row_ptr[i-1-Adj] + m.Ncol - i + 1
 	}
 
 	// the m.Row_ptr[m.Ncol-Adj] entry should never be used; it doesn't exist since
@@ -724,7 +724,7 @@ func (m *MillerLSQ) Tolset(eps float64) {
 		work[k] = math.Sqrt(math.Abs(m.D[k])) // 0-based already, no Adj needed.
 	}
 	for col = 1; col <= m.Ncol; col++ {
-		pos = (col - 1) - Adj
+		pos = col - 1 - Adj
 		total = work[col-Adj]
 		// for row loop does nothing when col == 1, note the condition that row <= col-1
 		//  and therefore R[0] when pos is 0 never gets indexed.
@@ -849,7 +849,7 @@ func (m *MillerLSQ) SS(wycol int) {
 	m.Rss[wycol][m.Ncol-Adj] = m.Sserr[wycol]
 	for i = m.Ncol; i >= 2; i-- {
 		total = total + m.D[i-Adj]*m.Rhs[wycol][i-Adj]*m.Rhs[wycol][i-Adj]
-		m.Rss[wycol][(i-1)-Adj] = total
+		m.Rss[wycol][i-1-Adj] = total
 	}
 
 	m.Rss_set[wycol] = true
@@ -916,7 +916,7 @@ func (m *MillerLSQ) Cov(nreq int, covmat []float64, sterr []float64, wycol int) 
 			if row == col {
 				total = 1.0 / m.D[col-Adj]
 			} else {
-				total = m.Rinv[(pos1-1)-Adj] / m.D[col-Adj]
+				total = m.Rinv[pos1-1-Adj] / m.D[col-Adj]
 			}
 			for k = col + 1; k <= nreq; k++ {
 				total = total + m.Rinv[pos1-Adj]*m.Rinv[pos2-Adj]/m.D[k-Adj]
@@ -1147,7 +1147,7 @@ func (m *MillerLSQ) Vmove(from int, to int) error {
 	// To maintain correctness, it is translated
 	// directly from the fortran structure.
 	//
-	for i = first; i != (last + inc); i += inc {
+	for i = first; i != last+inc; i += inc {
 
 		//     Find addresses of first elements of R in rows i and (i+1).
 
